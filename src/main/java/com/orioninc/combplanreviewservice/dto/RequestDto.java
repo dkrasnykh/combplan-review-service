@@ -11,7 +11,5 @@ public class RequestDto extends AbstractDto {
     private RequestStatus status;
     private OrganizationDto organization;
     private UserDto applicant;
-    private String title;
-    private String description;
-    private Set<UserDto> coAuthors;
+    private PublicationDto publication;
 }
