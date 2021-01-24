@@ -2,8 +2,9 @@ package com.orioninc.combplanreviewservice.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.orioninc.combplanreviewservice.dto.RequestDto;
+import com.orioninc.combplanreviewservice.config.AppConfig;
 import com.orioninc.combplanreviewservice.dto.ReviewDto;
+import com.orioninc.combplanreviewservice.service.ReviewService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,10 +28,12 @@ import java.util.concurrent.Executors;
 @Service
 public class ReviewConsumer {
     private final ObjectMapper mapper;
+    private final ReviewService service;
 
     @Autowired
-    public ReviewConsumer(ObjectMapper mapper) {
+    public ReviewConsumer(ObjectMapper mapper, ReviewService service) {
         this.mapper = mapper;
+        this.service = service;
     }
 
     @PostConstruct
@@ -44,13 +48,18 @@ public class ReviewConsumer {
             Consumer<Long, String> consumer = null;
             try {
                 consumer = new KafkaConsumer<>(properties);
-                consumer.subscribe(Collections.singletonList("notification-topic"));
+                consumer.subscribe(Collections.singletonList(AppConfig.NOTIFICATION_TOPIC));
                 while (true) {
                     ConsumerRecords<Long, String> records = consumer.poll(Duration.ofMillis(5000));
                     for (ConsumerRecord<Long, String> record : records) {
                         String value = record.value();
                         log.info("=> consumed {}", value);
                         ReviewDto reviewDto = readValue(value);
+                        if (Objects.isNull(reviewDto.getId())) {
+                            service.createReview(reviewDto);
+                        } else {
+                            service.updateReview(reviewDto);
+                        }
                     }
                 }
             } catch (Exception e) {
